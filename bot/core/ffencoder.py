@@ -92,8 +92,9 @@ class FFEncoder:
 
             if text:
                 done_ms  = int(findall(r"out_time_ms=(\d+)", text)[-1]) if findall(r"out_time_ms=(\d+)", text) else 0
+                size     = int(findall(r"total_size=(\d+)", text)[-1]) if findall(r"total_size=(\d+)", text) else 0 if (prog := findall(r"progress=(\w+)", text)) and prog[-1] == 'end':
                 done_sec = done_ms / 1_000_000
-                size     = int(findall(r"total_size=(\d+)", text)[-1]) if findall(r"total_size=(\d+)", text) else 0
+                #size = int(findall(r"total_size=(\d+)", text)[-1]) if findall(r"total_size=(\d+)", text) else 0
                 elapsed  = time() - self.__start_time
                 speed    = size / max(elapsed, 0.01)
                 percent  = min(round((done_sec / max(self.__total_time, 0.01)) * 100, 2), 99.99)
