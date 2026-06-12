@@ -38,7 +38,7 @@ from bot.core.reporter import movie_rep
 from bot.core.task_queue import movie_task_queue, MAX_RETRIES
 
 from .constants import QUAL_LABELS, AUDIO_LABELS, VIDEO_EXTS
-from .helpers import _qual_file_store, _make_link, _qual_btns_to_keyboard, extra_utils
+from .helpers import _qual_file_store, _make_link, _qual_btns_to_keyboard, extra_utils, hdri_passthrough
 from bot.core.memguard import reclaim_memory, areclaim_memory, drop_page_cache
 # Telegram MTProto file size limit (2 GiB).  We stay 100 MiB under it.
 _TG_SPLIT_BYTES = int(1.9 * 1024 ** 3)
@@ -47,8 +47,7 @@ _TG_SPLIT_BYTES = int(1.9 * 1024 ** 3)
 def _safe_dl_path(base_root: str, *parts: str) -> str:
     root   = _os.path.realpath(base_root)
     joined = _os.path.realpath(_os.path.join(base_root, *parts))
-    if not joined.startswith(root + _os.sep) and joined != root:
-        raise ValueError(f"Path traversal blocked: {joined!r} escapes {root!r}")
+    if not joined.startswith(root + _os.sep) and joined != root:        raise ValueError(f"Path traversal blocked: {joined!r} escapes {root!r}")
     return joined
 
 
@@ -98,7 +97,6 @@ async def _split_file(src: str, base_name: str, movie_dir: str) -> list:
         new_path = _os.path.join(movie_dir, f"{new_stem}{_ext}")
         _os.rename(raw, new_path)
         _renamed.append(new_path)
-
     _os.remove(src)
     return _renamed
 
@@ -147,8 +145,7 @@ async def _run_movie_pipeline(
         # ── 3. Dedicated channel lookup ───────────────────────────────────────
         _titles = movieInfo.adata.get("title", {})
         _lookup_names = [n for n in [
-            _titles.get("romaji"), _titles.get("english"), _normalize_anime_title(name),
-        ] if n and n.strip()]
+            _titles.get("romaji"), _titles.get("english"), _normalize_anime_title(name),        ] if n and n.strip()]
         channel_details = None
         for lname in _lookup_names:
             channel_details = await db.find_channel_by_anime_title(lname, db_type="movie")
@@ -197,8 +194,7 @@ async def _run_movie_pipeline(
                     if _os.path.splitext(_fn)[1].lower() in VIDEO_EXTS:
                         _fp = _os.path.join(_root, _fn)
                         _candidates.append((_os.path.getsize(_fp), _fp))
-            if not _candidates:
-                await movie_rep.report(f"No video file found in movie download: {name}", "error")
+            if not _candidates:                await movie_rep.report(f"No video file found in movie download: {name}", "error")
                 await stat_msg.delete()
                 await movie_task_queue.update_task(
                     task_id, status="failed", error="No video file found"
@@ -248,13 +244,15 @@ async def _run_movie_pipeline(
 
             _mv_qual_dir = _os.path.join(_movie_dir, qual)
             _os.makedirs(_mv_qual_dir, exist_ok=True)
-
             try:
-                async with batch_encode_lock:
-                    out_path = await FFEncoder(
-                        stat_msg, _src_file, _fname, qual,
-                        output_dir=_mv_qual_dir, display_name=title,
-                    ).start_encode()
+                if qual == 'Hdri':
+                    out_path = await hdri_passthrough(_src_file, _mv_qual_dir, _fname)
+                else:
+                    async with batch_encode_lock:
+                        out_path = await FFEncoder(
+                            stat_msg, _src_file, _fname, qual,
+                            output_dir=_mv_qual_dir, display_name=title,
+                        ).start_encode()
             except Exception as _ee:
                 retry = await movie_task_queue.increment_retry(task_id)
                 await movie_rep.report(
@@ -294,8 +292,7 @@ async def _run_movie_pipeline(
                 f"<code>{_os.path.basename(out_path)}</code>"
             )
 
-            if _fsize > _TG_SPLIT_BYTES:
-                n_parts = -(-_fsize // _TG_SPLIT_BYTES)
+            if _fsize > _TG_SPLIT_BYTES:                n_parts = -(-_fsize // _TG_SPLIT_BYTES)
                 await editMessage(
                     stat_msg,
                     f"<b>🎬 {title}</b>\n\n"
@@ -344,7 +341,6 @@ async def _run_movie_pipeline(
                 _abs_store = abs(file_store)
                 _b64 = await encode(f"get-{_abs_store}-{_part_ids[0]}-{_part_ids[-1]}")
                 _link = f"https://telegram.me/{_bot_uname}?start={_b64}"
-
             qual_links[qual] = _link
 
             # Live-update the channel post keyboard as each quality finishes
@@ -394,8 +390,7 @@ async def _run_movie_pipeline(
                 if _invite else None
             )
             if poster_url:
-                await _safe_send(
-                    upload_bot, upload_bot.send_photo, target_channel,
+                await _safe_send(                    upload_bot, upload_bot.send_photo, target_channel,
                     photo=poster_url,
                     caption=_notify_cap, reply_markup=_notify_kb,
                     _label="movie notify send_photo",
@@ -444,8 +439,7 @@ async def _run_movie_pipeline(
 
     except Exception:
         await movie_rep.report(format_exc(), "error")
-        if task_id:
-            retry = await movie_task_queue.increment_retry(task_id)
+        if task_id:            retry = await movie_task_queue.increment_retry(task_id)
             await movie_task_queue.update_task(
                 task_id, status="pending" if retry < MAX_RETRIES else "failed"
-            )
+      )
