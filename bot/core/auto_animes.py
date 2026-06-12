@@ -138,7 +138,7 @@ async def get_animes(
 
         # ── [Batch]-tagged torrent guard ──────────────────────────────────────
         if (not _is_batch_task(name, is_batch)
-                and _re.search(r'[\(\[]\s*batch\s*[\)\]]', name, _re.IGNORECASE)
+                and _re.search(r'\[\s*batch\s*\]', name, _re.IGNORECASE)
                 and not is_batch and not force):
             from bot.core.text_utils import TextEditor, _normalize_anime_title
             _bi = TextEditor(name)
@@ -244,4 +244,4 @@ async def process_batch_torrent(name: str, torrent: str, source_priority: int = 
             name, torrent, force=True, task_id=task_id,
             source_priority=source_priority, is_batch=True,
         )
-    )
+            )
