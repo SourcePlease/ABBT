@@ -1,0 +1,13 @@
+version: '3.8'
+services:
+  animebot:
+    build: .
+    container_name: animebot
+    restart: always
+    volumes:
+      - ./config.env:/app/config.env
+      - ./bot/thumb.jpg:/app/bot/thumb.jpg
+      - ./downloads:/app/downloads
+      - ./encode:/app/encode
+      - ./torrents:/app/torrents
+      - ./log.txt:/app/log.txt

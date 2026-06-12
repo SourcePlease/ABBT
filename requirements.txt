@@ -1,0 +1,29 @@
+aiohttp
+lxml_html_clean
+# Flask/gunicorn/werkzeug removed — never used by the bot, saves ~30MB RAM
+aioshutil
+aiofiles
+anitopy
+apscheduler
+dnspython
+motor==2.5.1
+feedparser
+psutil
+pycountry
+pymongo==3.12.3
+python-dotenv
+tgcrypto
+torrentp==0.1.7
+git+https://github.com/kaif-00z/html-telegraph-poster
+uvloop
+# Switched from KurimuzonAkuma/pyrogram (v2.1.23) to Mayuri-Chan/pyrofork
+# Supports <blockquote expandable> and receives regular Telegram feature updates
+pyrofork>=2.3.0
+# spacy + en_core_web_sm removed — _load_spacy() was never called, wasted ~400MB RAM
+# bson is bundled with pymongo — no separate install needed
+# assets/card_generator.py needs these for the AnimeNexus thumbnail card —
+# without them the import in bot/core/text_utils.py fails at startup with
+# ModuleNotFoundError before the bot can even connect to Telegram.
+numpy
+Pillow
+httpx
