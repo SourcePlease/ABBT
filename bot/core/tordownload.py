@@ -232,11 +232,11 @@ class TorDownloader:
         # Regex patterns for aria2c progress output:
         # Download progress: "[#abc123 1.2GiB/4.5GiB(27%) CN:4 DL:2.3MiB ETA:10m]"
         # Or the simple summary line: "27% (1.2GiB/4.5GiB)"
-        _pct_re   = re.compile(r'\((\d+)%\)')
-        _dl_re    = re.compile(r'DL:([0-9.]+\w+)')
+        _pct_re = re.compile(r'((\d+)%)')
+        _dl_re = re.compile(r'DL:([0-9.]+\w+)')
         _eta_re   = re.compile(r'ETA:([^\]]+)')
-        _cn_re    = re.compile(r'CN:(\d+)')
-        _size_re  = re.compile(r'([0-9.]+\w+)/([0-9.]+\w+)')
+        _cn_re = re.compile(r'CN:(\d+)')
+        _size_re = re.compile(r'([0-9.]+\w+)/([0-9.]+\w+)')
 
         try:
             proc = await asyncio.create_subprocess_exec(
