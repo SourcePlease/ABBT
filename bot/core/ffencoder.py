@@ -1,3 +1,4 @@
+# bot/core/ffencoder.py
 from re import findall
 from math import floor
 from time import time
