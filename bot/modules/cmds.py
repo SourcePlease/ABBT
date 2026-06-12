@@ -1341,3 +1341,25 @@ async def close_cb(client, query):
     except Exception:
         pass
     await query.answer()
+
+@bot.on_message(command('diskstatus') & private & admin)
+@new_task
+async def disk_status_cmd(client, message):
+    from bot.core.diskguard import get_disk_snapshot
+    from bot.core.func_utils import convertBytes
+    
+    snap = get_disk_snapshot("./downloads")
+    
+    total = convertBytes(snap['total_gb'] * 1024**3)
+    used = convertBytes(snap['used_gb'] * 1024**3)
+    free = convertBytes(snap['free_gb'] * 1024**3)
+    pct = snap['used_pct']
+    
+    text = (
+        f"💾 **Disk Status**\n\n"
+        f"**Total:** {total}\n"
+        f"**Used:** {used} ({pct}%)\n"
+        f"**Free:** {free}\n"
+        f"**Path:** `{snap['path']}`"
+    )
+    await sendMessage(message, text)
