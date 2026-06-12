@@ -47,8 +47,7 @@ _ENCODE_TIMEOUT = 7200  # 2 hours
 
 class FFEncoder:
     def __init__(self, message, path, name, qual, output_dir=None, display_name=None):
-        self.__proc       = None
-        self.is_cancelled = False
+        self.__proc       = None        self.is_cancelled = False
         self.message      = message
         self.__name       = name
         # display_name: clean anime title for the progress bar.
@@ -97,8 +96,7 @@ class FFEncoder:
                 done_sec = done_ms / 1_000_000
                 #size = int(findall(r"total_size=(\d+)", text)[-1]) if findall(r"total_size=(\d+)", text) else 0
                 elapsed  = time() - self.__start_time
-                speed    = size / max(elapsed, 0.01)
-                percent  = min(round((done_sec / max(self.__total_time, 0.01)) * 100, 2), 99.99)
+                speed    = size / max(elapsed, 0.01)                percent  = min(round((done_sec / max(self.__total_time, 0.01)) * 100, 2), 99.99)
                 tsize    = (size / done_sec * self.__total_time) if done_sec > 5 else 0
                 eta      = max((tsize - size) / max(speed, 0.01), 0)
                 bar      = "█" * floor(percent / 8) + "▒" * (12 - floor(percent / 8))
@@ -147,8 +145,7 @@ class FFEncoder:
         # check fails we return None (callers re-queue the task as 'pending'
         # so the periodic aggressive cleanup can free space first).
         ok, reason = assert_disk_for_encode(self.dl_path, label=f"{self.__qual} encode")
-        if not ok:
-            snap = get_disk_snapshot(self.dl_path)
+        if not ok:            snap = get_disk_snapshot(self.dl_path)
             LOGS.error(
                 f"⛔ FFEncoder: refusing [{self.__qual}] {self.__name} — "
                 f"{reason} (snapshot: {snap})"
@@ -197,8 +194,7 @@ class FFEncoder:
             )
             if not ram_ok:
                 LOGS.error(
-                    f"❌ Skipping [{self.__qual}] encode — insufficient RAM "
-                    f"({get_available_mb()}MB available, need {_needed}MB)"
+                    f"❌ Skipping [{self.__qual}] encode — insufficient RAM "                    f"({get_available_mb()}MB available, need {_needed}MB)"
                 )
                 return None
 
@@ -247,8 +243,7 @@ class FFEncoder:
         # This prevents shell-injection via filenames derived from torrent names.
         try:
             _ffargv = _shlex.split(ffcode)
-        except ValueError:
-            _ffargv = ffcode.split()  # fallback: naive split
+        except ValueError:            _ffargv = ffcode.split()  # fallback: naive split
 
         # FIX: stdout=DEVNULL instead of PIPE.
         #
@@ -297,8 +292,7 @@ class FFEncoder:
             timed_out = True
             LOGS.warning(
                 f"FFmpeg [{self.__qual}] exceeded {_ENCODE_TIMEOUT}s timeout — killing."
-            )
-            try:
+            )            try:
                 self.__proc.kill()
                 # Drain stderr after kill so the pipe buffer doesn't block
                 _, stderr_bytes = await self.__proc.communicate()
@@ -347,8 +341,7 @@ class FFEncoder:
                 f"(stalled encode): {self.__name}",
                 "error"
             )
-            try:
-                await aioremove(self.__out_tmp)
+            try:                await aioremove(self.__out_tmp)
             except Exception:
                 pass
             return None
