@@ -6,7 +6,12 @@ from asyncio import sleep as asleep
 from pyrogram import filters
 from pyrogram.filters import command, private, user, forwarded
 from pyrogram.types import InlineKeyboardButton, InlineKeyboardMarkup
-
+import os
+import shutil
+from pyrogram import filters
+from bot import bot, Var
+from bot.core.func_utils import sendMessage, convertBytes
+from bot.core.decorators import new_task
 from bot import bot, bot_loop, Var, admin
 from bot.core.database import db
 from bot.core.func_utils import decode, is_fsubbed, get_fsubs, editMessage, sendMessage, new_task, convertTime
@@ -1342,24 +1347,30 @@ async def close_cb(client, query):
         pass
     await query.answer()
 
-@bot.on_message(command('diskstatus') & private & admin)
+
+# Assuming 'admin' and 'private' filters are defined in your cmds.py
+@bot.on_message(filters.command('diskstatus') & private & admin)
 @new_task
 async def disk_status_cmd(client, message):
-    from bot.core.diskguard import get_disk_snapshot
-    from bot.core.func_utils import convertBytes
-    
-    snap = get_disk_snapshot("./downloads")
-    
-    total = convertBytes(snap['total_gb'] * 1024**3)
-    used = convertBytes(snap['used_gb'] * 1024**3)
-    free = convertBytes(snap['free_gb'] * 1024**3)
-    pct = snap['used_pct']
-    
-    text = (
-        f"💾 **Disk Status**\n\n"
-        f"**Total:** {total}\n"
-        f"**Used:** {used} ({pct}%)\n"
-        f"**Free:** {free}\n"
-        f"**Path:** `{snap['path']}`"
-    )
-    await sendMessage(message, text)
+    """Shows disk usage for the downloads directory."""
+    path = "./downloads"
+    if not os.path.exists(path):
+        path = "."
+        
+    try:
+        usage = shutil.disk_usage(path)
+        total = convertBytes(usage.total)
+        used = convertBytes(usage.used)
+        free = convertBytes(usage.free)
+        pct = round((usage.used / usage.total) * 100, 1)
+        
+        text = (
+            f"💾 **Disk Status**\n\n"
+            f"**Total:** {total}\n"
+            f"**Used:** {used} ({pct}%)\n"
+            f"**Free:** {free}\n"
+            f"**Path:** `{os.path.abspath(path)}`"
+        )
+        await sendMessage(message, text)
+    except Exception as e:
+        await sendMessage(message, f"❌ Error getting disk status: {e}")
