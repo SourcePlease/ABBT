@@ -47,7 +47,6 @@ basicConfig(
 
 getLogger("pyrogram").setLevel(ERROR)
 LOGS = getLogger(__name__)
-
 load_dotenv('config.env')
 
 ani_cache = {
@@ -97,8 +96,7 @@ class Var:
     # FIX #12: Reference the module-level FF_WORKERS instead of re-computing cpu_count().
     MAX_WORKERS = FF_WORKERS
 
-    DB_NAME       = getenv("DB_NAME", "anime_bot")
-    BATCH_DB_NAME = getenv("BATCH_DB_NAME") or (getenv("DB_NAME", "anime_bot") + "_batch")
+    DB_NAME       = getenv("DB_NAME", "anime_bot")    BATCH_DB_NAME = getenv("BATCH_DB_NAME") or (getenv("DB_NAME", "anime_bot") + "_batch")
 
     # /settings panel banner (used by bot/modules/settings.py)
     SETTINGS_PHOTO_URL = getenv(
@@ -147,8 +145,7 @@ class Var:
     MOVIE_DB_NAME      = getenv("MOVIE_DB_NAME") or (getenv("DB_NAME", "anime_bot") + "_movies")
     # Per-quality file store channels (movie). Falls back to MOVIE_FILE_STORE if unset.
     MOVIE_FILE_STORE_HDRI = int(getenv("MOVIE_FILE_STORE_HDRI") or getenv("MOVIE_FILE_STORE") or getenv("FILE_STORE"))
-    MOVIE_FILE_STORE_1080 = int(getenv("MOVIE_FILE_STORE_1080") or getenv("MOVIE_FILE_STORE") or getenv("FILE_STORE"))
-    MOVIE_FILE_STORE_720  = int(getenv("MOVIE_FILE_STORE_720")  or getenv("MOVIE_FILE_STORE") or getenv("FILE_STORE"))
+    MOVIE_FILE_STORE_1080 = int(getenv("MOVIE_FILE_STORE_1080") or getenv("MOVIE_FILE_STORE") or getenv("FILE_STORE"))    MOVIE_FILE_STORE_720  = int(getenv("MOVIE_FILE_STORE_720")  or getenv("MOVIE_FILE_STORE") or getenv("FILE_STORE"))
     MOVIE_FILE_STORE_480  = int(getenv("MOVIE_FILE_STORE_480")  or getenv("MOVIE_FILE_STORE") or getenv("FILE_STORE"))
 
     # Owner system instead of multiple admins
@@ -164,13 +161,13 @@ class Var:
     # to stereo simultaneously. Fixed with selective stream mapping:
     #   -map 0:v       → first/best video stream only
     #   -map 0:a       → first/best audio stream only
-    #   -map 0:s:m:language:eng?  → English subs if present, ? = don't fail if missing
+    #   -map 0:s:m:language:eng:?  → English subs if present, ?: = don't fail if missing
     # NOTE: -threads 1 -x264-params threads=1 caps each encode to 1 OS thread.
     # With MAX_WORKERS=2 this means max 2 threads total from x264 — safe for
     # a 4-vCPU VPS with 7.7 GB RAM shared with the manga bot.
     FFCODE_Hdri   = getenv("FFCODE_Hdri") or (
         "ffmpeg -hwaccel auto -i '{}' -progress '{}' -nostats -loglevel warning "
-        "-map 0:v -map 0:a -map 0:s:m:language:eng? "
+        "-map 0:v -map 0:a -map 0:s:m:language:eng:? "
         "-c:v libx264 -pix_fmt yuv420p -vf \"scale=640:360:flags=lanczos\" "
         "-crf 32 -preset veryfast -tune animation -threads 1 -x264-params threads=1 "
         "-c:a libopus -b:a 48k -ac 2 "
@@ -178,7 +175,7 @@ class Var:
     )
     FFCODE_1080   = getenv("FFCODE_1080") or (
         "ffmpeg -hwaccel auto -i '{}' -progress '{}' -nostats -loglevel warning "
-        "-map 0:v -map 0:a -map 0:s:m:language:eng? "
+        "-map 0:v -map 0:a -map 0:s:m:language:eng:? "
         "-c:v libx264 -pix_fmt yuv420p -vf \"scale=1920:1080:flags=lanczos\" "
         "-crf 26 -preset veryfast -tune animation -threads 1 -x264-params threads=1 "
         "-c:a libopus -b:a 128k -ac 2 "
@@ -186,7 +183,7 @@ class Var:
     )
     FFCODE_720    = getenv("FFCODE_720")  or (
         "ffmpeg -hwaccel auto -i '{}' -progress '{}' -nostats -loglevel warning "
-        "-map 0:v -map 0:a -map 0:s:m:language:eng? "
+        "-map 0:v -map 0:a -map 0:s:m:language:eng:? "
         "-c:v libx264 -pix_fmt yuv420p -vf \"scale=1280:720:flags=lanczos\" "
         "-crf 26 -preset veryfast -tune animation -threads 1 -x264-params threads=1 "
         "-c:a libopus -b:a 96k -ac 2 "
@@ -194,11 +191,10 @@ class Var:
     )
     FFCODE_480    = getenv("FFCODE_480")  or (
         "ffmpeg -hwaccel auto -i '{}' -progress '{}' -nostats -loglevel warning "
-        "-map 0:v -map 0:a -map 0:s:m:language:eng? "
+        "-map 0:v -map 0:a -map 0:s:m:language:eng:? "
         "-c:v libx264 -pix_fmt yuv420p -vf \"scale=854:480:flags=lanczos\" "
         "-crf 30 -preset veryfast -tune animation -threads 1 -x264-params threads=1 "
-        "-c:a libopus -b:a 64k -ac 2 "
-        "-c:s copy -movflags +faststart '{}' -y"
+        "-c:a libopus -b:a 64k -ac 2 "        "-c:s copy -movflags +faststart '{}' -y"
     )
 
     # FIX #13: Original default "480 720 1080 Hdri " had a trailing space.
@@ -248,7 +244,6 @@ def _check_required_vars():
 
 _check_required_vars()
 
-
 # ── FFCODE copy-codec safety check ───────────────────────────────────────────
 # When FFCODE_<quality> contains `-c:v copy` (or the legacy `-vcodec copy`),
 # ffmpeg copies the source video stream byte-for-byte instead of re-encoding.
@@ -297,8 +292,7 @@ def _check_copy_codecs():
         # The temporary downgrade (commit 6307506) caused a real production
         # outage: with FFCODE_Hdri=`-c:v copy`, every HDRip output was source-
         # sized (~1.5 GB / 1080p episode). A 12-episode batch consumed 25-40 GB
-        # of scratch space — filling the VPS root partition, taking down
-        # MongoDB, every co-tenant bot, and SSH access itself.
+        # of scratch space — filling the VPS root partition, taking down        # MongoDB, every co-tenant bot, and SSH access itself.
         #
         # The bot now refuses to start unless EITHER:
         #   (a) the FFCODE_<quality> env var uses a real encoder, OR
@@ -347,8 +341,7 @@ async def admin_filter(_, client, update):
             return False
         user_id = user.id
         if user_id == Var.OWNER_ID:
-            return True
-        from bot.core.database import db
+            return True        from bot.core.database import db
         return await db.is_admin(user_id)
     except Exception:
         return False
@@ -397,8 +390,7 @@ for _d in ("encode/", "thumbs/", "downloads/"):
 # ── Event loop + Pyrogram clients ────────────────────────────────────────────
 
 try:
-    try:
-        bot_loop = asyncio.get_running_loop()
+    try:        bot_loop = asyncio.get_running_loop()
     except RuntimeError:
         bot_loop = asyncio.new_event_loop()
         asyncio.set_event_loop(bot_loop)
@@ -447,7 +439,6 @@ except Exception as ee:
 
 
 # ── Force Subscription Event Handlers ────────────────────────────────────────
-
 @bot.on_chat_member_updated()
 async def handle_chat_members(client, chat_member_updated: ChatMemberUpdated):
     """Handle member updates for force subscription channels."""
