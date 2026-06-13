@@ -96,7 +96,8 @@ class Var:
     # FIX #12: Reference the module-level FF_WORKERS instead of re-computing cpu_count().
     MAX_WORKERS = FF_WORKERS
 
-    DB_NAME       = getenv("DB_NAME", "anime_bot")    BATCH_DB_NAME = getenv("BATCH_DB_NAME") or (getenv("DB_NAME", "anime_bot") + "_batch")
+    DB_NAME       = getenv("DB_NAME", "anime_bot")
+    BATCH_DB_NAME = getenv("BATCH_DB_NAME") or (getenv("DB_NAME", "anime_bot") + "_batch")
 
     # /settings panel banner (used by bot/modules/settings.py)
     SETTINGS_PHOTO_URL = getenv(
