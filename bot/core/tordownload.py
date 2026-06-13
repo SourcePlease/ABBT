@@ -254,7 +254,8 @@ class TorDownloader:
                 pct_m = _pct_re.search(line)
                 if not pct_m:
                     continue
-                pct = float(pct_m.group(1))
+                #pct = float(pct_m.group(1).replace('%', ''))
+                pct = float(pct_m.group(2))
 
                 now      = time.time()
                 bar      = _progress_bar(pct)
