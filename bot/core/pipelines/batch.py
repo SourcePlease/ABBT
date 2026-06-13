@@ -195,7 +195,8 @@ async def _run_batch_pipeline(
 
         # ── 2. Download ───────────────────────────────────────────────────────
         _safe_name     = _re_ep.sub(r'[^\w\s-]', ' ', name)
-        _safe_name     = _re_ep.sub(r'\s+', ' ', _safe_name).strip().replace(' ', '_')[:50]        _season_folder = f"Season_{_season_raw}"
+        _safe_name     = _re_ep.sub(r'\s+', ' ', _safe_name).strip().replace(' ', '_')[:50]
+        _season_folder = f"Season_{_season_raw}"
         _batch_base    = _safe_dl_path("./downloads/batch", _safe_name, _season_folder)
         _os.makedirs(_batch_base, exist_ok=True)
 
@@ -244,7 +245,8 @@ async def _run_batch_pipeline(
                 if not _os.path.isdir(_qd_path):
                     continue
                 for _stranded in _glob.glob(_os.path.join(_qd_path, 'in_*.mkv')):
-                    _base = _os.path.basename(_stranded)                    _dest = _os.path.join(dl, _base.replace('in_', 'recovered_', 1))
+                    _base = _os.path.basename(_stranded)
+                    _dest = _os.path.join(dl, _base.replace('in_', 'recovered_', 1))
                     try:
                         _os.rename(_stranded, _dest)
                         await batch_rep.report(
@@ -342,7 +344,8 @@ async def _run_batch_pipeline(
                 f"🚨 {len(_corrupt_files)}/{len(_src_files)} file(s) failed stream probe "
                 f"for {anime_title}: {_corrupt_files[:5]}",
                 "error",
-            )            _alt = await batch_task_queue.pop_alt_torrent(task_id)
+            )
+            _alt = await batch_task_queue.pop_alt_torrent(task_id)
             if _alt:
                 _alt_name, _alt_url = _alt
                 await batch_rep.report(f"🔄 Falling back to alt torrent: {_alt_name[:70]}", "info")
@@ -391,7 +394,8 @@ async def _run_batch_pipeline(
                 except (ValueError, TypeError):
                     _cur_season = 1
 
-                _uploaded = set()                _ep_data_miss = await batch_db.get_batch_ep_links(ani_id, season=f"s{_cur_season}")
+                _uploaded = set()
+                _ep_data_miss = await batch_db.get_batch_ep_links(ani_id, season=f"s{_cur_season}")
                 if _ep_data_miss:
                     _uploaded = {int(k) for k in _ep_data_miss.keys()}
 
@@ -440,7 +444,8 @@ async def _run_batch_pipeline(
                         "info", log=False,
                     )
                     _snames_miss = await _get_search_names(anime_title)
-                    _miss_cands  = {}                    _rss_res = await _search_nyaa_rss_season(
+                    _miss_cands = {}
+                    _rss_res = await _search_nyaa_rss_season(
                         _snames_miss, season=_cur_season, release_year=_release_year_miss
                     )
                     for _mt, _mu in _rss_res:
@@ -538,7 +543,8 @@ async def _run_batch_pipeline(
         # total_eps = highest episode number (not file count, which may be filtered)
         total_eps = ep_info[-1]["ep_num"] if ep_info else len(_src_files)
 
-        # ── 8. Chunk large seasons ────────────────────────────────────────────        _chunk_size  = Var.ENCODE_CHUNK
+        # ── 8. Chunk large seasons ────────────────────────────────────────────
+        _chunk_size  = Var.ENCODE_CHUNK
         _total_files = len(ep_info)
         _chunks = [ep_info[i:i + _chunk_size] for i in range(0, _total_files, _chunk_size)]
         _MIN_TAIL = 5
@@ -685,7 +691,8 @@ async def _run_batch_pipeline(
                 )
             ep_info = _chunk_ep_info  # narrow scope for this chunk
 
-            for qual in ALL_QUALS:                _pending = [ep for ep in ep_info if not ep_links[ep["ep_num"]].get(qual)]
+            for qual in ALL_QUALS:
+                _pending = [ep for ep in ep_info if not ep_links[ep["ep_num"]].get(qual)]
                 if not _pending:
                     # DB says all eps uploaded — but verify the first message still
                     # exists in the file store channel before trusting the resume.
@@ -930,7 +937,8 @@ async def _run_batch_pipeline(
                                         f"❌ No replacement found for E{_fep_num:02d} — skipping Hdri",
                                         "warning", log=False,
                                     )
-                                    _still_failed.append(_fep)                                    continue
+                                    _still_failed.append(_fep)
+                                    continue
 
                                 _ep_cands.sort()
                                 _, _rep_title, _rep_url = _ep_cands[0]
@@ -1214,7 +1222,7 @@ async def _run_batch_pipeline(
                                 _hdri_ep_msg = await (
                                     TgUploader(stat_msg, upload_bot=upload_bot, file_store=_hdri_qs)
                                     .set_display_name(anime_title)
-                                    .upload(_hout, 'Hdri', caption=_hdri_ep_caption)
+                                    .upload(_out, 'Hdri', caption=_hdri_ep_caption)
                                 )
                             except Exception as _hdri_ue:
                                 retry = await batch_task_queue.increment_retry(task_id)
@@ -1228,10 +1236,6 @@ async def _run_batch_pipeline(
                                     error=str(_hdri_ue)[:300],
                                 )
                                 return
-
-                            # NOTE: TgUploader.upload() already deletes the file after
-                            # a successful upload (aioremove(path) inside upload()).
-                            # No explicit delete needed here.
 
                             _hdri_ep_link = await _make_link(
                                 _hdri_ep_msg.id, file_store=_hdri_qs, upload_bot=upload_bot
@@ -1247,9 +1251,6 @@ async def _run_batch_pipeline(
                             await batch_task_queue.mark_qual_done(task_id, 'Hdri')
                             bot_loop.create_task(extra_utils(_hdri_ep_msg.id, _hout))
 
-                            # Memory reclaim between Hdri episode uploads
-                            # FIX: synchronous reclaim_memory() blocks event loop
-                            # via malloc_trim — use the async helper instead.
                             await areclaim_memory()
                             if _os.path.exists(_ep['src']):
                                 drop_page_cache(_ep['src'])
@@ -1273,7 +1274,8 @@ async def _run_batch_pipeline(
                                     ani_id, _true_hf, _true_hl, _hdri_qs,
                                     season=_season_key,
                                     extra={"first_Hdri": _true_hf, "last_Hdri": _true_hl},
-                                )                            else:
+                                )                            
+                            else:
                                 _true_hf, _true_hl = _hdri_first_id, _hdri_last_id
                             qual_ranges['Hdri'] = (_true_hf, _true_hl)
                             _b64_hdri = await encode(f"get-{abs(_hdri_qs)}-{_true_hf}-{_true_hl}")
@@ -1349,7 +1351,6 @@ async def _run_batch_pipeline(
                                         output_dir=_qual_dir, display_name=anime_title,
                                     ).start_encode()
                             except Exception as _ee:
-                                # Encode exception → check for alt torrent before retrying
                                 _exc_alt = await batch_task_queue.pop_alt_torrent(task_id)
                                 if _exc_alt:
                                     _exc_name, _exc_url = _exc_alt
@@ -1371,7 +1372,8 @@ async def _run_batch_pipeline(
                                         max(0, source_priority - 1), next(_bc4),
                                         _exc_name, _exc_url, True,
                                         _exc_tid, source_priority, [], False,
-                                    ))                                    await batch_task_queue.update_task(
+                                    ))                                    
+                                    await batch_task_queue.update_task(
                                         task_id, status="failed",
                                         error=f"Encode exception [{qual}] E{_ep_num:02d} — retried with alt",
                                     )
@@ -1468,8 +1470,6 @@ async def _run_batch_pipeline(
                         await batch_task_queue.mark_qual_done(task_id, qual)
                         bot_loop.create_task(extra_utils(_ep_msg.id, _out))
 
-                        # Memory reclaim between quality encode+upload cycles
-                        # FIX: synchronous reclaim_memory() blocks event loop                        # via malloc_trim — use the async helper instead.
                         await areclaim_memory()
                         if _os.path.exists(_src):
                             drop_page_cache(_src)
@@ -1518,7 +1518,8 @@ async def _run_batch_pipeline(
                             f"Live button update/persist failed [{qual}]: {_le}", "warning", log=False
                         )
 
-                    # Delete encoded files immediately after upload                    _done_dir = _os.path.join(_batch_base, qual)
+                    # Delete encoded files immediately after upload
+                    _done_dir = _os.path.join(_batch_base, qual)
                     if _os.path.isdir(_done_dir):
                         try:
                             import shutil as _shutil
@@ -1627,7 +1628,7 @@ async def _run_batch_pipeline(
                     f"<b>➤ Episode - {str(_ep_num_n).zfill(2)}</b>\n"
                     f"<b>➤ Quality: Multi [{AUDIO_LABELS.get(audio, audio)}]</b>\n"
                     f"<b>{'─' * 28}</b>\n"
-                    f"<blockquote expandable><b>‣ Synopsis : {_synopsis}</b></blockquote>"
+                    f"<collapse title=\"Synopsis\">📌 {_synopsis}</collapse>"
                 )
             else:
                 _notify_cap = (
@@ -1637,7 +1638,7 @@ async def _run_batch_pipeline(
                     f"<b>➤ Episodes - {total_eps}</b>\n"
                     f"<b>➤ Quality: Multi [{AUDIO_LABELS.get(audio, audio)}]</b>\n"
                     f"<b>{'─' * 28}</b>\n"
-                    f"<blockquote expandable><b>‣ Synopsis : {_synopsis}</b></blockquote>"
+                    f"<collapse title=\"Synopsis\">📌 {_synopsis}</collapse>"
                 )
 
             _notify_kb = (
@@ -1658,8 +1659,6 @@ async def _run_batch_pipeline(
                     pass
 
             if not _notify_sent:
-                # Warm the notify target — may be MAIN_CHANNEL or target_channel,
-                # whichever wasn't already warmed at the top of this function.
                 await _warm_peer(upload_bot, _notify_target)
                 if poster_url:
                     _notify_msg = await _safe_send(
@@ -1763,7 +1762,8 @@ async def _run_batch_pipeline(
                 _sp_qual_links: dict = {}
 
                 _sp_ep_ai       = TextEditor(name)
-                _sp_ep_ai.adata = aniInfo.adata                _sp_ep_ai.pdata = dict(aniInfo.pdata)
+                _sp_ep_ai.adata = aniInfo.adata
+                _sp_ep_ai.pdata = dict(aniInfo.pdata)
                 _sp_ep_ai.pdata["episode_number"] = _sp_idx
 
                 for _sp_qual in ALL_QUALS:
@@ -1812,7 +1812,8 @@ async def _run_batch_pipeline(
                     try:
                         _sp_msg = await (
                             TgUploader(_sp_stat, upload_bot=upload_bot, file_store=_sp_q_store)
-                            .set_display_name(anime_title)                            .upload(_sp_out, _sp_qual, caption=_sp_file_caption)
+                            .set_display_name(anime_title)
+                            .upload(_sp_out, _sp_qual, caption=_sp_file_caption)
                         )
                     except Exception as _sp_ue:
                         await batch_rep.report(
@@ -1862,7 +1863,6 @@ async def _run_batch_pipeline(
                 await _aiorm(_batch_base)
         except Exception:
             pass
-        # ani_cache['completed'] write removed — DB is the source of truth
 
     except Exception:
         await batch_rep.report(format_exc(), "error")
@@ -1870,4 +1870,4 @@ async def _run_batch_pipeline(
             retry = await batch_task_queue.increment_retry(task_id)
             await batch_task_queue.update_task(
                 task_id, status="pending" if retry < MAX_RETRIES else "failed"
-      )
+            )
