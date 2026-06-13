@@ -47,7 +47,8 @@ from bot import bot, bot_loop, Var, ani_cache, batch_encode_lock, batch_dl_lock
 from bot.core.tordownload import TorDownloader
 from bot.core.database import db, batch_db
 from bot.core.func_utils import editMessage, sendMessage, encode
-from bot.core.text_utils import TextEditor, detect_audio, _normalize_anime_titlefrom bot.core.ffencoder import FFEncoder
+from bot.core.text_utils import TextEditor, detect_audio, _normalize_anime_title
+from bot.core.ffencoder import FFEncoder
 from bot.core.tguploader import TgUploader
 from bot.core.reporter import batch_rep
 from bot.core.task_queue import batch_task_queue, MAX_RETRIES
