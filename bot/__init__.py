@@ -146,12 +146,13 @@ class Var:
     MOVIE_DB_NAME      = getenv("MOVIE_DB_NAME") or (getenv("DB_NAME", "anime_bot") + "_movies")
     # Per-quality file store channels (movie). Falls back to MOVIE_FILE_STORE if unset.
     MOVIE_FILE_STORE_HDRI = int(getenv("MOVIE_FILE_STORE_HDRI") or getenv("MOVIE_FILE_STORE") or getenv("FILE_STORE"))
-    MOVIE_FILE_STORE_1080 = int(getenv("MOVIE_FILE_STORE_1080") or getenv("MOVIE_FILE_STORE") or getenv("FILE_STORE"))    MOVIE_FILE_STORE_720  = int(getenv("MOVIE_FILE_STORE_720")  or getenv("MOVIE_FILE_STORE") or getenv("FILE_STORE"))
+    MOVIE_FILE_STORE_1080 = int(getenv("MOVIE_FILE_STORE_1080") or getenv("MOVIE_FILE_STORE") or getenv("FILE_STORE"))
+    MOVIE_FILE_STORE_720  = int(getenv("MOVIE_FILE_STORE_720")  or getenv("MOVIE_FILE_STORE") or getenv("FILE_STORE"))
     MOVIE_FILE_STORE_480  = int(getenv("MOVIE_FILE_STORE_480")  or getenv("MOVIE_FILE_STORE") or getenv("FILE_STORE"))
 
     # Owner system instead of multiple admins
-    OWNER    = getenv("OWNER", "Lucifer3000")
-    OWNER_ID = int(getenv("OWNER_ID", "917790252"))
+    OWNER    = getenv("OWNER", "")
+    OWNER_ID = int(getenv("OWNER_ID", ""))
 
     SEND_SCHEDULE = getenv("SEND_SCHEDULE", "False").lower() == "true"
     BRAND_UNAME   = getenv("BRAND_UNAME", "@username")
@@ -342,7 +343,8 @@ async def admin_filter(_, client, update):
             return False
         user_id = user.id
         if user_id == Var.OWNER_ID:
-            return True        from bot.core.database import db
+            return True        
+        from bot.core.database import db
         return await db.is_admin(user_id)
     except Exception:
         return False
