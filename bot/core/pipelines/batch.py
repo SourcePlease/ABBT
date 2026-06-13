@@ -790,7 +790,8 @@ async def _run_batch_pipeline(
                     for _ep in ep_info:
                         _src   = _ep["src"]
                         _ep_ai = _ep["aniInfo"]
-                        _ep_ai.pdata["episode_number"] = _ep["ep_num"]                        _fname = await _ep_ai.get_upname('Hdri')
+                        _ep_ai.pdata["episode_number"] = _ep["ep_num"]                        
+                        _fname = await _ep_ai.get_upname('Hdri')
                         _hdri_expected = _os.path.join(_hdri_dir, _fname)
 
                         if not _os.path.exists(_src):
