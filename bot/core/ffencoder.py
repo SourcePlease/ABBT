@@ -254,7 +254,7 @@ class FFEncoder:
         except ValueError:
             _ffargv = ffcode.split()  # fallback: naive split
 
-        self.__proc = await create_subprocess_exec(
+        self.__proc = await asyncio.create_subprocess_exec(
             *_ffargv,
             stdout=DEVNULL,  # was PIPE — caused unbounded RAM growth
             stderr=PIPE,     # keep stderr for error reporting only
