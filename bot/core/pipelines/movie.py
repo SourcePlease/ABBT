@@ -40,6 +40,7 @@ from bot.core.task_queue import movie_task_queue, MAX_RETRIES
 from .constants import QUAL_LABELS, AUDIO_LABELS, VIDEO_EXTS
 from .helpers import _qual_file_store, _make_link, _qual_btns_to_keyboard, extra_utils, hdri_passthrough
 from bot.core.memguard import reclaim_memory, areclaim_memory, drop_page_cache
+
 # Telegram MTProto file size limit (2 GiB).  We stay 100 MiB under it.
 _TG_SPLIT_BYTES = int(1.9 * 1024 ** 3)
 
@@ -47,7 +48,8 @@ _TG_SPLIT_BYTES = int(1.9 * 1024 ** 3)
 def _safe_dl_path(base_root: str, *parts: str) -> str:
     root   = _os.path.realpath(base_root)
     joined = _os.path.realpath(_os.path.join(base_root, *parts))
-    if not joined.startswith(root + _os.sep) and joined != root:        raise ValueError(f"Path traversal blocked: {joined!r} escapes {root!r}")
+    if not joined.startswith(root + _os.sep) and joined != root:        
+        raise ValueError(f"Path traversal blocked: {joined!r} escapes {root!r}")
     return joined
 
 
@@ -144,8 +146,13 @@ async def _run_movie_pipeline(
 
         # ── 3. Dedicated channel lookup ───────────────────────────────────────
         _titles = movieInfo.adata.get("title", {})
-        _lookup_names = [n for n in [
-            _titles.get("romaji"), _titles.get("english"), _normalize_anime_title(name),        ] if n and n.strip()]
+        _lookup_names = [
+            n for n in [
+                _titles.get("romaji"), 
+                _titles.get("english"), 
+                _normalize_anime_title(name)
+            ] if n and n.strip()
+        ]
         channel_details = None
         for lname in _lookup_names:
             channel_details = await db.find_channel_by_anime_title(lname, db_type="movie")
@@ -194,7 +201,8 @@ async def _run_movie_pipeline(
                     if _os.path.splitext(_fn)[1].lower() in VIDEO_EXTS:
                         _fp = _os.path.join(_root, _fn)
                         _candidates.append((_os.path.getsize(_fp), _fp))
-            if not _candidates:                await movie_rep.report(f"No video file found in movie download: {name}", "error")
+            if not _candidates:                
+                await movie_rep.report(f"No video file found in movie download: {name}", "error")
                 await stat_msg.delete()
                 await movie_task_queue.update_task(
                     task_id, status="failed", error="No video file found"
@@ -292,7 +300,8 @@ async def _run_movie_pipeline(
                 f"<code>{_os.path.basename(out_path)}</code>"
             )
 
-            if _fsize > _TG_SPLIT_BYTES:                n_parts = -(-_fsize // _TG_SPLIT_BYTES)
+            if _fsize > _TG_SPLIT_BYTES:                
+                n_parts = -(-_fsize // _TG_SPLIT_BYTES)
                 await editMessage(
                     stat_msg,
                     f"<b>🎬 {title}</b>\n\n"
@@ -355,8 +364,6 @@ async def _run_movie_pipeline(
                 pass
 
             # Memory reclaim between movie quality encode+upload cycles
-            # FIX: synchronous reclaim_memory() blocks event loop via
-            # malloc_trim — use the async helper instead.
             await areclaim_memory()
             if _os.path.exists(_src_file):
                 drop_page_cache(_src_file)
@@ -390,7 +397,8 @@ async def _run_movie_pipeline(
                 if _invite else None
             )
             if poster_url:
-                await _safe_send(                    upload_bot, upload_bot.send_photo, target_channel,
+                await _safe_send(
+                    upload_bot, upload_bot.send_photo, target_channel,
                     photo=poster_url,
                     caption=_notify_cap, reply_markup=_notify_kb,
                     _label="movie notify send_photo",
@@ -439,7 +447,8 @@ async def _run_movie_pipeline(
 
     except Exception:
         await movie_rep.report(format_exc(), "error")
-        if task_id:            retry = await movie_task_queue.increment_retry(task_id)
+        if task_id:            
+            retry = await movie_task_queue.increment_retry(task_id)
             await movie_task_queue.update_task(
                 task_id, status="pending" if retry < MAX_RETRIES else "failed"
-      )
+            )
