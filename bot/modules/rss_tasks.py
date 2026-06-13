@@ -279,10 +279,10 @@ async def _do_processbatch_link(text: str) -> str:
 async def _do_processbatch_id(short_id: str) -> str:
     """Process a skipped batch by short ID."""
     from bot.core.auto_animes import process_batch_torrent
-    from bot.core.database import db as _db
+    from bot.core.database import batch_db   # FIXED: use batch_db instead of db
 
     short_id = short_id.zfill(3)
-    doc = await _db.get_skipped_batch(short_id)
+    doc = await batch_db.get_skipped_batch(short_id)   # FIXED
     if not doc:
         return (
             f"<b>❌ No skipped batch with ID <code>{short_id}</code>.</b>\n"
@@ -290,7 +290,7 @@ async def _do_processbatch_id(short_id: str) -> str:
         )
     torrent = doc["torrent"]
     name = doc["name"]
-    await _db.delete_skipped_batch(short_id)
+    await batch_db.delete_skipped_batch(short_id)   # FIXED
 
     bot_loop.create_task(process_batch_torrent(name, torrent))
     return (
@@ -403,8 +403,8 @@ async def show_rt_menu(client, query):
 
 
 async def _show_batch_list(client, query, page: int = 0):
-    from bot.core.database import db as _db
-    skipped = await _db.get_all_skipped_batches()
+    from bot.core.database import batch_db   # FIXED: use batch_db instead of db
+    skipped = await batch_db.get_all_skipped_batches()   # FIXED
 
     if not skipped:
         body = (
