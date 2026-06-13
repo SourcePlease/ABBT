@@ -14,6 +14,7 @@ from asyncio import (
 from asyncio.subprocess import PIPE, DEVNULL
 import shlex as _shlex
 import os as _os
+import asyncio
 
 from bot import Var, bot_loop, ffpids_cache, LOGS
 from .func_utils import mediainfo, convertBytes, convertTime, editMessage
