@@ -5,30 +5,41 @@ from time import time
 from os import path as ospath, makedirs
 from aiofiles import open as aiopen
 from aiofiles.os import remove as aioremove, rename as aiorename
-from asyncio import sleep as asleep, gather, create_subprocess_shell, create_subprocess_exec, create_task, wait_for, TimeoutError as AioTimeoutError
+from asyncio import (
+    sleep as asleep,
+    create_task,
+    wait_for,
+    TimeoutError as AioTimeoutError,
+)
 from asyncio.subprocess import PIPE, DEVNULL
 import shlex as _shlex
+import os as _os
 
 from bot import Var, bot_loop, ffpids_cache, LOGS
 from .func_utils import mediainfo, convertBytes, convertTime, editMessage
 from .reporter import rep
 from .memguard import (
-    get_available_mb, wait_for_ram, drop_page_cache,
-    reclaim_memory, areclaim_memory, set_memory_limit, is_low_ram,
-    MIN_RAM_ENCODE_MB, FFMPEG_VMEM_LIMIT,
+    get_available_mb,
+    wait_for_ram,
+    drop_page_cache,
+    reclaim_memory,
+    areclaim_memory,
+    set_memory_limit,
+    is_low_ram,
+    MIN_RAM_ENCODE_MB,
+    FFMPEG_VMEM_LIMIT,
 )
 from .diskguard import assert_disk_for_encode, get_disk_snapshot
 
 ffargs = {
     "Hdri": Var.FFCODE_Hdri,
-    '1080': Var.FFCODE_1080,
-    '720':  Var.FFCODE_720,
-    '480':  Var.FFCODE_480,
+    "1080": Var.FFCODE_1080,
+    "720": Var.FFCODE_720,
+    "480": Var.FFCODE_480,
 }
 
 # Simple monotonic counter for unique temp-file names within a process.
 # No UUID needed — counter + pid is collision-safe for concurrent encodes.
-import os as _os
 _job_counter = 0
 
 
@@ -47,27 +58,29 @@ _ENCODE_TIMEOUT = 7200  # 2 hours
 
 class FFEncoder:
     def __init__(self, message, path, name, qual, output_dir=None, display_name=None):
-        self.__proc       = None        self.is_cancelled = False
-        self.message      = message
-        self.__name       = name
+        self.__proc = None
+        self.is_cancelled = False
+        self.message = message
+        self.__name = name
+
         # display_name: clean anime title for the progress bar.
-        self.__display    = display_name if display_name else name
-        self.__qual       = qual
-        self.dl_path      = path
+        self.__display = display_name if display_name else name
+        self.__qual = qual
+        self.dl_path = path
 
         # Temp files live inside output_dir (or "encode/" as fallback).
         # This removes the dependency on a separate encode/ scratch folder
         # when the caller supplies an output_dir (ongoing/batch/movie pipelines).
-        _job              = _next_job_id()
-        _work_dir         = output_dir if output_dir else "encode"
+        _job = _next_job_id()
+        _work_dir = output_dir if output_dir else "encode"
         makedirs(_work_dir, exist_ok=True)
 
-        self.__prog_file  = ospath.join(_work_dir, f"prog_{_job}.txt")
-        self.__in_tmp     = ospath.join(_work_dir, f"in_{_job}.mkv")
-        self.__out_tmp    = ospath.join(_work_dir, f"out_{_job}.mkv")
+        self.__prog_file = ospath.join(_work_dir, f"prog_{_job}.txt")
+        self.__in_tmp = ospath.join(_work_dir, f"in_{_job}.mkv")
+        self.__out_tmp = ospath.join(_work_dir, f"out_{_job}.mkv")
 
         # Final output also lands in _work_dir (the quality sub-directory).
-        self.out_path     = ospath.join(_work_dir, name)
+        self.out_path = ospath.join(_work_dir, name)
         self.__start_time = time()
         self.__total_time = None
 
@@ -78,28 +91,37 @@ class FFEncoder:
         if not isinstance(self.__total_time, (int, float)) or self.__total_time == 0:
             self.__total_time = 1.0
 
-        last_update     = 0   # Telegram edit cadence (every 8s)
-        last_log        = 0   # Console log cadence (every 30s — separate so
-                              # SSH operators see encode progress without
-                              # spamming the log file every 8s).
+        last_update = 0   # Telegram edit cadence (every 8s)
+        last_log = 0      # Console log cadence (every 30s — separate so
+                          # SSH operators see encode progress without
+                          # spamming the log file every 8s).
+
         while not (self.__proc is None or self.is_cancelled):
             try:
-                async with aiopen(self.__prog_file, 'r') as p:
+                async with aiopen(self.__prog_file, "r") as p:
                     text = await p.read()
             except Exception:
                 await asleep(2)
                 continue
 
             if text:
-                done_ms  = int(findall(r"out_time_ms=(\d+)", text)[-1]) if findall(r"out_time_ms=(\d+)", text) else 0
-                size     = int(findall(r"total_size=(\d+)", text)[-1]) if findall(r"total_size=(\d+)", text) else 0 if (prog := findall(r"progress=(\w+)", text)) and prog[-1] == 'end':
+                out_time_matches = findall(r"out_time_ms=(\d+)", text)
+                size_matches = findall(r"total_size=(\d+)", text)
+                progress_matches = findall(r"progress=(\w+)", text)
+
+                done_ms = int(out_time_matches[-1]) if out_time_matches else 0
+                size = int(size_matches[-1]) if size_matches else 0
                 done_sec = done_ms / 1_000_000
-                #size = int(findall(r"total_size=(\d+)", text)[-1]) if findall(r"total_size=(\d+)", text) else 0
-                elapsed  = time() - self.__start_time
-                speed    = size / max(elapsed, 0.01)                percent  = min(round((done_sec / max(self.__total_time, 0.01)) * 100, 2), 99.99)
-                tsize    = (size / done_sec * self.__total_time) if done_sec > 5 else 0
-                eta      = max((tsize - size) / max(speed, 0.01), 0)
-                bar      = "█" * floor(percent / 8) + "▒" * (12 - floor(percent / 8))
+
+                elapsed = time() - self.__start_time
+                speed = size / max(elapsed, 0.01)
+                percent = min(
+                    round((done_sec / max(self.__total_time, 0.01)) * 100, 2),
+                    99.99,
+                )
+                tsize = (size / done_sec * self.__total_time) if done_sec > 5 else 0
+                eta = max((tsize - size) / max(speed, 0.01), 0)
+                bar = "█" * floor(percent / 8) + "▒" * (12 - floor(percent / 8))
 
                 if time() - last_update >= 8:
                     last_update = time()
@@ -117,8 +139,6 @@ class FFEncoder:
                     await editMessage(self.message, progress_str)
 
                 # ── Console progress line (every 30s) ─────────────────────
-                # One short, grep-friendly line so an SSH operator can see
-                # how far along an encode is without opening Telegram.
                 if time() - last_log >= 30:
                     last_log = time()
                     LOGS.info(
@@ -129,7 +149,7 @@ class FFEncoder:
                         f"elapsed {convertTime(elapsed)} | eta {convertTime(eta)}"
                     )
 
-                if (prog := findall(r"progress=(\w+)", text)) and prog[-1] == 'end':
+                if progress_matches and progress_matches[-1] == "end":
                     LOGS.info(
                         f"📈 encode [{self.__qual}] {self.__name} — "
                         f"[{'█' * 12}] 100% done in {convertTime(time() - self.__start_time)}"
@@ -140,12 +160,9 @@ class FFEncoder:
 
     async def start_encode(self):
         # ── Pre-encode: disk-space pre-flight ─────────────────────────────────
-        # Required free space = max(MIN_FREE_GB, source_size * ENCODE_HEADROOM_X)
-        # so we never start an encode that could fill the partition. If the
-        # check fails we return None (callers re-queue the task as 'pending'
-        # so the periodic aggressive cleanup can free space first).
         ok, reason = assert_disk_for_encode(self.dl_path, label=f"{self.__qual} encode")
-        if not ok:            snap = get_disk_snapshot(self.dl_path)
+        if not ok:
+            snap = get_disk_snapshot(self.dl_path)
             LOGS.error(
                 f"⛔ FFEncoder: refusing [{self.__qual}] {self.__name} — "
                 f"{reason} (snapshot: {snap})"
@@ -164,18 +181,15 @@ class FFEncoder:
 
         if ospath.exists(self.__prog_file):
             await aioremove(self.__prog_file)
-        async with aiopen(self.__prog_file, 'w+'):
+
+        async with aiopen(self.__prog_file, "w+"):
             LOGS.info("Progress Temp Generated !")
 
         # ── Pre-encode: reclaim memory from previous cycle ────────────────────
-        # Pyrofork upload buffers from the previous quality (especially Hdri)
-        # linger in Python's glibc arena. Force-collect before we start.
         reclaim_memory()
 
         # ── Pre-encode: wait for enough RAM ───────────────────────────────────
-        # On an 8GB + 4GB swap VPS, the 1080p encode after Hdri upload can push
-        # total usage past swap capacity. Gate on available RAM.
-        _is_copy = (self.__qual == 'Hdri')  # stream copy uses minimal RAM
+        _is_copy = self.__qual == "Hdri"  # stream copy uses minimal RAM
         if not _is_copy:
             _needed = MIN_RAM_ENCODE_MB
             _avail = get_available_mb()
@@ -185,16 +199,19 @@ class FFEncoder:
                     f"attempting system cache drop before encode"
                 )
                 from .memguard import drop_system_caches
+
                 drop_system_caches()
                 _avail = get_available_mb()
 
             ram_ok = await wait_for_ram(
-                min_mb=_needed, timeout=300,
+                min_mb=_needed,
+                timeout=300,
                 label=f"{self.__qual} {self.__name}",
             )
             if not ram_ok:
                 LOGS.error(
-                    f"❌ Skipping [{self.__qual}] encode — insufficient RAM "                    f"({get_available_mb()}MB available, need {_needed}MB)"
+                    f"❌ Skipping [{self.__qual}] encode — insufficient RAM "
+                    f"({get_available_mb()}MB available, need {_needed}MB)"
                 )
                 return None
 
@@ -202,17 +219,15 @@ class FFEncoder:
         await aiorename(self.dl_path, self.__in_tmp)
 
         if self.__qual not in ffargs:
-            LOGS.error(f"FFEncoder: unknown quality '{self.__qual}' — not in ffargs. Aborting.")
+            LOGS.error(
+                f"FFEncoder: unknown quality '{self.__qual}' — not in ffargs. Aborting."
+            )
             await aiorename(self.__in_tmp, self.dl_path)
             return None
 
         ffcode = ffargs[self.__qual].format(self.__in_tmp, self.__prog_file, self.__out_tmp)
 
         # ── Auto-downgrade preset when RAM is tight ───────────────────────────
-        # `-preset fast` allocates ~2x the frame buffers of `ultrafast`.
-        # When available RAM < 1GB, swap to ultrafast for this encode only.
-        # This trades file size for survival — ~20% bigger output but uses
-        # ~400MB less RAM during encode.
         if not _is_copy and is_low_ram():
             for _old_preset in ("-preset fast", "-preset medium", "-preset slow"):
                 if _old_preset in ffcode:
@@ -223,66 +238,39 @@ class FFEncoder:
                     )
                     break
 
-        # Inject audio channel normalization for libopus when the source has a
-        # non-standard layout (e.g. 5.1(side)) that libopus rejects.
-        # -af aformat=channel_layouts tells FFmpeg to remap to the nearest
-        # supported layout before encoding. Only injected when libopus is used
-        # and -af is not already present in the command.
+        # Inject audio channel normalization for libopus when needed.
         if "libopus" in ffcode and "-af " not in ffcode:
-            # Insert before the output path (last token that ends with '{}' or .mkv)
-            # Safe approach: inject right before -c:a libopus
             ffcode = ffcode.replace(
                 "-c:a libopus",
                 "-af aformat=channel_layouts='7.1|5.1|stereo|mono' -c:a libopus",
                 1,
             )
 
-        LOGS.info(f'FFCode: {ffcode}')
+        LOGS.info(f"FFCode: {ffcode}")
 
         # Security: split shell string into argv list and use exec (no shell interpreter).
-        # This prevents shell-injection via filenames derived from torrent names.
         try:
             _ffargv = _shlex.split(ffcode)
-        except ValueError:            _ffargv = ffcode.split()  # fallback: naive split
+        except ValueError:
+            _ffargv = ffcode.split()  # fallback: naive split
 
-        # FIX: stdout=DEVNULL instead of PIPE.
-        #
-        # With stdout=PIPE, asyncio buffers ALL of FFmpeg's stdout output in RAM
-        # until communicate() returns. For a long 1080p encode this can grow to
-        # several GB — it was the direct cause of the 6.7GB RSS spike.
-        #
-        # FFmpeg's stdout is not used here: progress is tracked via __prog_file
-        # (written by FFmpeg's -progress flag) and stderr is captured separately
-        # for error reporting. Routing stdout to /dev/null costs nothing and
-        # prevents the buffer from accumulating in Python's heap.
         self.__proc = await create_subprocess_exec(
             *_ffargv,
-            stdout=DEVNULL,   # was PIPE — caused unbounded RAM growth
-            stderr=PIPE,      # keep stderr for error reporting only
+            stdout=DEVNULL,  # was PIPE — caused unbounded RAM growth
+            stderr=PIPE,     # keep stderr for error reporting only
         )
         pid = self.__proc.pid
         ffpids_cache.append(pid)
 
         # ── Cap ffmpeg's virtual memory to prevent system-wide OOM ────────────
-        # If ffmpeg hits this limit it gets malloc() = NULL and exits cleanly
-        # with an error code, instead of the kernel OOM-killing the entire VPS.
         if not _is_copy:
             set_memory_limit(pid, FFMPEG_VMEM_LIMIT)
 
         # Run progress() concurrently with ffmpeg.
-        # IMPORTANT: communicate() must signal progress() to stop when ffmpeg
-        # finishes — otherwise progress() loops forever because self.__proc is
-        # still set (not None) and progress=end may never appear in the file
-        # if ffmpeg exits abnormally. Fix: set self.__proc = None immediately
-        # after communicate() returns so progress()'s while condition exits.
         _progress_task = create_task(self.progress())
 
-        # FIX: wrap communicate() in a timeout so a stalled FFmpeg process
-        # (disk full, corrupted input, peer deadlock) cannot hold memory
-        # indefinitely. After _ENCODE_TIMEOUT seconds we kill the process,
-        # collect whatever stderr arrived, and fail the task cleanly.
         stderr_bytes = b""
-        timed_out    = False
+        timed_out = False
         try:
             _, stderr_bytes = await wait_for(
                 self.__proc.communicate(),
@@ -292,16 +280,16 @@ class FFEncoder:
             timed_out = True
             LOGS.warning(
                 f"FFmpeg [{self.__qual}] exceeded {_ENCODE_TIMEOUT}s timeout — killing."
-            )            try:
+            )
+            try:
                 self.__proc.kill()
-                # Drain stderr after kill so the pipe buffer doesn't block
                 _, stderr_bytes = await self.__proc.communicate()
             except Exception:
                 pass
 
         return_code = self.__proc.returncode
-        self.__proc = None          # signal progress() to stop looping
-        await _progress_task        # wait for progress() to clean up and exit
+        self.__proc = None  # signal progress() to stop looping
+        await _progress_task
 
         if pid in ffpids_cache:
             ffpids_cache.remove(pid)
@@ -316,20 +304,10 @@ class FFEncoder:
             pass
 
         # ── Post-encode: evict source file from page cache ────────────────────
-        # The source file (~1-1.5GB for a 1080p episode) stays in Linux page
-        # cache after encoding. Evicting it frees that memory before the next
-        # quality starts, preventing cumulative cache buildup across 4 qualities.
         if ospath.exists(self.dl_path):
             drop_page_cache(self.dl_path)
 
         # ── Force Python heap cleanup between qualities ───────────────────────
-        # FIX: was a synchronous reclaim_memory() call that ran malloc_trim(0)
-        # on the freshly-emptied 1-3 GB encode arena.  malloc_trim is a
-        # blocking syscall and on a large heap it walks every arena page,
-        # freezing the event loop for 5–30 minutes.  Symptom: after
-        # "Dropped page cache" you'd see no further log line — the upload
-        # never started because the loop was held by malloc_trim.
-        # Offload to a thread executor so the event loop stays responsive.
         await areclaim_memory()
 
         if self.is_cancelled:
@@ -339,9 +317,10 @@ class FFEncoder:
             await rep.report(
                 f"❌ FFmpeg [{self.__qual}] killed after {_ENCODE_TIMEOUT // 3600}h timeout "
                 f"(stalled encode): {self.__name}",
-                "error"
+                "error",
             )
-            try:                await aioremove(self.__out_tmp)
+            try:
+                await aioremove(self.__out_tmp)
             except Exception:
                 pass
             return None
